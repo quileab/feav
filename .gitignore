@@ -13,10 +13,7 @@
 /storage/framework/views/*.php
 /storage/framework/sessions/*
 /storage/logs/*.log
-*.key
-*.crt
-*.csr
-*.p12
+/vendor
 .env
 .env.backup
 .env.production
@@ -31,6 +28,11 @@ yarn-error.log
 /.idea
 /.nova
 /.vscode
+/.viewer
 /.zed
 /*.zip
 /*.sql
+*.key
+*.crt
+*.csr
+*.p12
