@@ -90,14 +90,33 @@ class ImportLegacyData extends Command
 
         DB::table('vouchers')->chunkById(100, function ($vouchers) use ($bar) {
             foreach ($vouchers as $v) {
-                $data = $v->data;
-                if (is_string($data)) {
-                    $clean = trim($data, '"');
-                    $clean = stripslashes($clean);
+                $data_raw = $v->data;
+                if (is_string($data_raw)) {
+                    // Limpieza profunda: eliminar escapes literales \\\" y barras sobrantes
+                    $clean = str_replace('\\"', '"', $data_raw);
+                    $clean = str_replace('\\\\', '', $clean);
+                    $clean = trim($clean, '"');
+                    
                     $decoded = json_decode($clean, true);
                     
-                    if (json_last_error() === JSON_ERROR_NONE) {
-                        DB::table('vouchers')->where('id', $v->id)->update(['data' => json_encode($decoded)]);
+                    // Si falla el primer intento, probamos con stripslashes recursivo
+                    if (json_last_error() !== JSON_ERROR_NONE) {
+                        $clean = stripslashes(stripslashes($data_raw));
+                        $clean = trim($clean, '"');
+                        $decoded = json_decode($clean, true);
+                    }
+
+                    if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                        // Normalizar números a 2 decimales para compatibilidad total con SQLite
+                        array_walk_recursive($decoded, function (&$value) {
+                            if (is_numeric($value) && is_float($value)) {
+                                $value = round($value, 2);
+                            }
+                        });
+
+                        DB::table('vouchers')->where('id', $v->id)->update([
+                            'data' => json_encode($decoded, JSON_UNESCAPED_UNICODE)
+                        ]);
 
                         if (isset($decoded['items']) && is_array($decoded['items'])) {
                             foreach ($decoded['items'] as $item) {
@@ -105,10 +124,10 @@ class ImportLegacyData extends Command
                                     'voucher_id' => $v->id,
                                     'product_id' => $item['id'] ?? null,
                                     'quantity' => $item['qty'] ?? 0,
-                                    'price' => $item['price'] ?? 0,
+                                    'price' => round((float)($item['price'] ?? 0), 2),
                                 ], [
-                                    'tax' => $item['tax'] ?? 0,
-                                    'subtotal' => $item['subtotal'] ?? 0,
+                                    'tax' => round((float)($item['tax'] ?? 0), 2),
+                                    'subtotal' => round((float)($item['subtotal'] ?? 0), 2),
                                     'created_at' => $v->created_at,
                                     'updated_at' => $v->updated_at,
                                 ]);
