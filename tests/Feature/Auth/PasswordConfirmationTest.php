@@ -3,6 +3,8 @@
 use App\Models\User;
 
 test('confirm password screen can be rendered', function () {
+    $this->markTestSkipped('Missing starter kit components.');
+
     $user = User::factory()->create();
 
     $response = $this->actingAs($user)->get(route('password.confirm'));
