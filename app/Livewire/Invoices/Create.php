@@ -54,12 +54,7 @@ class Create extends Component implements HasForms, HasActions
 
         $this->voucherTypes = \App\Models\VoucherType::query()
             ->where('enabled', true)
-            ->when(!$fiscal, function ($query) {
-                return $query->where('id', '>', 5000);
-            })
-            ->when($fiscal, function ($query) {
-                return $query->where('id', '<', 5000);
-            })
+            ->orderBy('value')
             ->get()
             ->toArray();
 
@@ -238,13 +233,18 @@ class Create extends Component implements HasForms, HasActions
 
     public function getTotalsProperty()
     {
-        $net = 0; $tax = 0;
+        $net = 0; $tax = 0; $total = 0;
         foreach ($this->cart as $item) {
-            $lineTotal = ((float)$item['price'] - (float)($item['discount'] ?? 0)) * (float)$item['qty'];
-            $lineNet = $lineTotal / (1 + ($item['tax_rate'] / 100));
-            $net += $lineNet; $tax += ($lineTotal - $lineNet);
+            $effectivePrice = round((float)$item['price'] - (float)($item['discount'] ?? 0), 2);
+            $lineTotal = round($effectivePrice * (float)$item['qty'], 2);
+            $lineNet = round($lineTotal / (1 + ($item['tax_rate'] / 100)), 2);
+            $lineTax = round($lineTotal - $lineNet, 2);
+            
+            $net += $lineNet; 
+            $tax += $lineTax;
+            $total += $lineTotal;
         }
-        return ['net' => $net, 'tax' => $tax, 'total' => $net + $tax];
+        return ['net' => round($net, 2), 'tax' => round($tax, 2), 'total' => round($total, 2)];
     }
 
     public function save(BillingService $billingService)
@@ -268,7 +268,7 @@ class Create extends Component implements HasForms, HasActions
                 'voucherTypeId' => $this->voucherTypeId,
                 'pointOfSale' => $this->pointOfSale,
                 'warehouseId' => $this->warehouseId,
-                'isFiscal' => ($config['fiscal'] ?? '0') == '1' && $this->voucherTypeId <= 5000,
+                'isFiscal' => ($config['fiscal'] ?? '0') == '1' && $this->voucherTypeId < 5000,
                 'originalPtoVta' => $this->originalPtoVta,
                 'originalCbteNro' => $this->originalCbteNro,
             ]);

@@ -2,9 +2,10 @@
 
 namespace App\Livewire\Dashboard;
 
-use Livewire\Component;
-use Livewire\Attributes\Lazy;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Livewire\Attributes\Lazy;
+use Livewire\Component;
 
 #[Lazy]
 class AfipStatus extends Component
@@ -21,12 +22,14 @@ class AfipStatus extends Component
     public function getStatus()
     {
         $config = DB::table('configs')->pluck('value', 'id');
-        if (!isset($config['afip_cert']) || !isset($config['afip_key'])) {
+        if (! isset($config['afip_cert']) || ! isset($config['afip_key'])) {
             return ['error' => 'Configuración incompleta'];
         }
 
         $taFolder = storage_path('app/afip/');
-        if (!file_exists($taFolder)) { mkdir($taFolder, 0777, true); }
+        if (! file_exists($taFolder)) {
+            mkdir($taFolder, 0777, true);
+        }
 
         $afipParams = [
             'CUIT' => (int) preg_replace('/[^0-9]/', '', $config['cuit'] ?? '0'),
@@ -37,8 +40,19 @@ class AfipStatus extends Component
             'ta_folder' => $taFolder,
             'environment' => $config['environment'] ?? 'dev',
             'exceptions' => true,
-            'soap_options' => ['cache_wsdl' => WSDL_CACHE_NONE, 'connection_timeout' => 15]
+            'soap_options' => [
+                'cache_wsdl' => defined('WSDL_CACHE_NONE') ? \WSDL_CACHE_NONE : 0,
+                'connection_timeout' => 15,
+            ],
         ];
+
+        if (! class_exists('\SoapClient')) {
+            return [
+                'error' => 'Extensión SOAP no instalada',
+                'message' => 'La extensión PHP SOAP es necesaria para conectar con AFIP.',
+                'cuit' => $config['cuit'] ?? 'N/A',
+            ];
+        }
 
         try {
             $afip = new \Afip($afipParams);
@@ -51,16 +65,19 @@ class AfipStatus extends Component
                 'lastA' => $lastA,
                 'lastB' => $lastB,
                 'pos' => $pos,
-                'cuit' => $config['cuit'] ?? 'N/A'
+                'cuit' => $config['cuit'] ?? 'N/A',
             ]);
         } catch (\Exception $e) {
             if (str_contains($e->getMessage(), 'cms') || str_contains($e->getMessage(), 'TA')) {
-                foreach (glob($taFolder . '*') as $file) { @unlink($file); }
+                foreach (glob($taFolder.'*') as $file) {
+                    @unlink($file);
+                }
             }
+
             return [
                 'error' => 'Error de conexión',
                 'message' => $e->getMessage(),
-                'cuit' => $config['cuit'] ?? 'N/A'
+                'cuit' => $config['cuit'] ?? 'N/A',
             ];
         }
     }
@@ -69,18 +86,18 @@ class AfipStatus extends Component
     {
         $config = DB::table('configs')->pluck('value', 'id');
         $basePath = storage_path('app/');
-        
-        $certPath = isset($config['afip_cert']) ? $basePath . $config['afip_cert'] : null;
-        $keyPath = isset($config['afip_key']) ? $basePath . $config['afip_key'] : null;
-        
+
+        $certPath = isset($config['afip_cert']) ? $basePath.$config['afip_cert'] : null;
+        $keyPath = isset($config['afip_key']) ? $basePath.$config['afip_key'] : null;
+
         $certInfo = 'No configurado';
         $isExpired = false;
-        
+
         if ($certPath && file_exists($certPath)) {
             $certData = openssl_x509_parse(file_get_contents($certPath));
             if ($certData) {
-                $validTo = \Carbon\Carbon::createFromTimestamp($certData['validTo_time_t']);
-                $certInfo = 'Vence el: ' . $validTo->format('d/m/Y');
+                $validTo = Carbon::createFromTimestamp($certData['validTo_time_t']);
+                $certInfo = 'Vence el: '.$validTo->format('d/m/Y');
                 $isExpired = $validTo->isPast();
             } else {
                 $certInfo = 'Certificado inválido';
@@ -94,7 +111,7 @@ class AfipStatus extends Component
             'cert_file' => file_exists($certPath),
             'key_file' => file_exists($keyPath),
             'cert_info' => $certInfo,
-            'is_expired' => $isExpired
+            'is_expired' => $isExpired,
         ];
     }
 
@@ -102,7 +119,7 @@ class AfipStatus extends Component
     {
         return view('livewire.dashboard.afip-status', [
             'afipStatus' => $this->getStatus(),
-            'diagnostics' => $this->getDiagnostics()
+            'diagnostics' => $this->getDiagnostics(),
         ]);
     }
 }

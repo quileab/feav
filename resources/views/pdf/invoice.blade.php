@@ -48,8 +48,14 @@
         /* Tabla de productos a 7pt con formato Argentina */
         .items-table { font-size: 7pt !important; width: 100%; table-layout: fixed; }
         .items-table th { background-color: #eee; font-weight: bold; font-size: 7pt; }
-        .items-table td { word-wrap: break-word; font-size: 7pt; }
+        .items-table td { font-size: 7pt; }
         .items-table tfoot td { font-size: 8pt; }
+
+        .truncate {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
     </style>
 </head>
 <body>
@@ -106,21 +112,21 @@
                 <thead>
                     <tr>
                         @if($inv_letter == 'A')
-                            <th class="border p-1" style="width: 6%;">Cód.</th>
-                            <th class="border p-1" style="width: 12%;">Cant. u/m</th>
-                            <th class="border p-1" style="width: 30%;">Descripción</th>
-                            <th class="border p-1" style="width: 11%;">P. Unit</th>
-                            <th class="border p-1" style="width: 7%;">% Desc</th>
-                            <th class="border p-1" style="width: 11%;">Subt.</th>
-                            <th class="border p-1" style="width: 11%;">IVA</th>
-                            <th class="border p-1" style="width: 12%;">Precio</th>
-                        @else
                             <th class="border p-1" style="width: 7%;">Cód.</th>
-                            <th class="border p-1" style="width: 14%;">Cant. u/m</th>
-                            <th class="border p-1" style="width: 46%;">Descripción</th>
-                            <th class="border p-1" style="width: 12%;">P. Unit</th>
+                            <th class="border p-1" style="width: 8%;">Cant. u/m</th>
+                            <th class="border p-1" style="width: 38%;">Descripción</th>
+                            <th class="border p-1" style="width: 10%;">P. Unit</th>
+                            <th class="border p-1" style="width: 7%;">% Desc</th>
+                            <th class="border p-1" style="width: 10%;">Subt.</th>
+                            <th class="border p-1" style="width: 10%;">IVA</th>
+                            <th class="border p-1" style="width: 10%;">Precio</th>
+                        @else
+                            <th class="border p-1" style="width: 8%;">Cód.</th>
+                            <th class="border p-1" style="width: 9%;">Cant. u/m</th>
+                            <th class="border p-1" style="width: 54%;">Descripción</th>
+                            <th class="border p-1" style="width: 11%;">P. Unit</th>
                             <th class="border p-1" style="width: 8%;">% Desc</th>
-                            <th class="border p-1" style="width: 13%;">Precio</th>
+                            <th class="border p-1" style="width: 10%;">Precio</th>
                         @endif
                     </tr>
                 </thead>
@@ -147,32 +153,53 @@
                             $unitNet = round($priceWithTax / (1 + ($taxRate / 100)), 2);
                         @endphp
                         <tr>
-                            <td class="border p-1 text-center">{{ $item['id'] }}</td>
-                            <td class="border p-1 text-center">{{ number_format($qty, 2, ',', '.') }} {{ $item['unit'] ?? 'un' }}</td>
-                            <td class="border p-1 text-left">{{ $item['name'] }}</td>
-                            <td class="border p-1 text-right">${{ number_format(($inv_letter == 'A' ? $unitNet : $priceWithTax), 2, ',', '.') }}</td>
-                            <td class="border p-1 text-center">{{ number_format($discountPerc, 2, ',', '.') }}%</td>
+                            <td class="border p-1 text-center truncate">{{ $item['id'] }}</td>
+                            <td class="border p-1 text-center truncate">{{ number_format($qty, 2, ',', '.') }} {{ $item['unit'] ?? 'un' }}</td>
+                            <td class="border p-1 text-left truncate">{{ $item['name'] }}</td>
+                            <td class="border p-1 text-right truncate">${{ number_format(($inv_letter == 'A' ? $unitNet : $priceWithTax), 2, ',', '.') }}</td>
+                            <td class="border p-1 text-center truncate">{{ number_format($discountPerc, 2, ',', '.') }}%</td>
                             @if($inv_letter == 'A')
-                                <td class="border p-1 text-right">${{ number_format($lineNet, 2, ',', '.') }}</td>
-                                <td class="border p-1 text-right">${{ number_format($lineTax, 2, ',', '.') }}</td>
+                                <td class="border p-1 text-right truncate">${{ number_format($lineNet, 2, ',', '.') }}</td>
+                                <td class="border p-1 text-right truncate">${{ number_format($lineTax, 2, ',', '.') }}</td>
                             @endif
-                            <td class="border p-1 text-right">${{ number_format($lineTotal, 2, ',', '.') }}</td>
+                            <td class="border p-1 text-right truncate">${{ number_format($lineTotal, 2, ',', '.') }}</td>
                         </tr>
                     @endforeach
                 </tbody>
                 <tfoot>
                     @php 
                         $footerColspan = ($inv_letter == 'A') ? 7 : 5;
+                        $vatSummary = [];
+                        foreach ($data['items'] as $item) {
+                            $rate = (float)($item['tax_rate'] ?? 21);
+                            $qty = (float)$item['qty'];
+                            $priceWithTax = (float)$item['price'];
+                            $discountAmount = (float)($item['discount'] ?? 0);
+                            $finalPriceWithTax = $priceWithTax - $discountAmount;
+                            
+                            $lineTotal = round($finalPriceWithTax * $qty, 2);
+                            $lineNet = round($lineTotal / (1 + ($rate / 100)), 2);
+                            $lineTax = round($lineTotal - $lineNet, 2);
+                            
+                            $rateKey = number_format($rate, 1, ',', '.');
+                            if (!isset($vatSummary[$rateKey])) {
+                                $vatSummary[$rateKey] = ['net' => 0, 'tax' => 0];
+                            }
+                            $vatSummary[$rateKey]['net'] += $lineNet;
+                            $vatSummary[$rateKey]['tax'] += $lineTax;
+                        }
                     @endphp
                     @if($inv_letter == 'A')
-                        <tr>
-                            <td colspan="{{ $footerColspan }}" class="text-right p-1">Subtotal Neto</td>
-                            <td class="border p-1 text-right">${{ number_format($data['ImpNeto'], 2, ',', '.') }}</td>
-                        </tr>
-                        <tr>
-                            <td colspan="{{ $footerColspan }}" class="text-right p-1">IVA Total</td>
-                            <td class="border p-1 text-right">${{ number_format($data['ImpIVA'], 2, ',', '.') }}</td>
-                        </tr>
+                        @foreach($vatSummary as $rate => $amounts)
+                            <tr>
+                                <td colspan="{{ $footerColspan }}" class="text-right p-1">Subtotal Neto (IVA {{ $rate }}%)</td>
+                                <td class="border p-1 text-right">${{ number_format($amounts['net'], 2, ',', '.') }}</td>
+                            </tr>
+                            <tr>
+                                <td colspan="{{ $footerColspan }}" class="text-right p-1">IVA ({{ $rate }}%)</td>
+                                <td class="border p-1 text-right">${{ number_format($amounts['tax'], 2, ',', '.') }}</td>
+                            </tr>
+                        @endforeach
                     @endif
                     <tr>
                         <td colspan="{{ $footerColspan }}" class="text-right p-1 font-bold" style="font-size: 9pt;">Total</td>

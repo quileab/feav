@@ -15,7 +15,7 @@ class VouchersTable
     public static function configure(Table $table): Table
     {
         return $table
-            ->defaultSort('id', 'desc')
+            ->defaultSort('created_at', 'desc')
             ->columns([
                 TextColumn::make('id')
                     ->label('Nro. Comprobante')
@@ -27,13 +27,23 @@ class VouchersTable
                 TextColumn::make('data.ImpTotal')
                     ->label('Total')
                     ->money('ARS')
+                    ->alignment('right')
                     ->sortable(),
                 TextColumn::make('created_at')
                     ->label('Fecha')
-                    ->dateTime()
+                    ->dateTime('d/m/Y H:i')
                     ->sortable(),
             ])
             ->filters([
+                \Filament\Tables\Filters\TernaryFilter::make('is_fiscal')
+                    ->label('Tipo de Emisión')
+                    ->placeholder('Todos')
+                    ->trueLabel('Fiscales')
+                    ->falseLabel('No Fiscales')
+                    ->queries(
+                        true: fn ($query) => $query->whereRaw("CAST(SUBSTR(id, 1, INSTR(id, '-') - 1) AS INTEGER) < 5000"),
+                        false: fn ($query) => $query->whereRaw("CAST(SUBSTR(id, 1, INSTR(id, '-') - 1) AS INTEGER) >= 5000"),
+                    ),
                 \Filament\Tables\Filters\SelectFilter::make('CbteTipo')
                     ->label('Tipo Comprobante')
                     ->options(fn () => \App\Models\VoucherType::where('enabled', true)->pluck('value', 'id'))
@@ -53,6 +63,7 @@ class VouchersTable
                     ->label('N/C')
                     ->icon('heroicon-o-arrow-path')
                     ->color('warning')
+                    ->visible(fn ($record) => (int) explode('-', $record->id)[0] < 5000)
                     ->url(fn ($record) => route('filament.admin.resources.vouchers.create', [
                         'asocPtoVta' => $record->data['PtoVta'] ?? null,
                         'asocNro' => $record->data['CbteDesde'] ?? null,
@@ -65,6 +76,7 @@ class VouchersTable
                     ->label('N/D')
                     ->icon('heroicon-o-arrow-path-rounded-square')
                     ->color('info')
+                    ->visible(fn ($record) => (int) explode('-', $record->id)[0] < 5000)
                     ->url(fn ($record) => route('filament.admin.resources.vouchers.create', [
                         'asocPtoVta' => $record->data['PtoVta'] ?? null,
                         'asocNro' => $record->data['CbteDesde'] ?? null,

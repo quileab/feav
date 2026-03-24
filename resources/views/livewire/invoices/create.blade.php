@@ -2,34 +2,23 @@
     <!-- Selección de Datos de Cabecera (Compacto) -->
     <flux:card class="p-4">
         <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
-            <flux:field>
-                <flux:label class="text-xs">Comprobante</flux:label>
-                <select wire:model="voucherTypeId" {{ $isAssociated ? 'disabled' : '' }} class="w-full h-9 px-2 py-1 text-sm border border-zinc-200 rounded-md bg-white dark:bg-zinc-800 dark:border-zinc-700 text-zinc-900 dark:text-white focus:ring-2 focus:ring-zinc-500 outline-none disabled:bg-zinc-100">
-                    @foreach($voucherTypes as $type)
-                        <option value="{{ $type['id'] }}">{{ $type['value'] }}</option>
-                    @endforeach
-                </select>
-            </flux:field>
+            <flux:select wire:model="voucherTypeId" label="Comprobante" size="sm" :disabled="$isAssociated">
+                @foreach($voucherTypes as $type)
+                    <flux:select.option value="{{ $type['id'] }}">{{ $type['value'] }}</flux:select.option>
+                @endforeach
+            </flux:select>
 
-            <flux:field>
-                <flux:label class="text-xs">Cliente</flux:label>
-                <select wire:model.live="customerId" {{ $isAssociated ? 'disabled' : '' }}
-                    class="w-full h-9 px-2 py-1 text-sm border border-zinc-200 rounded-md bg-white dark:bg-zinc-800 dark:border-zinc-700 text-zinc-900 dark:text-white focus:ring-2 focus:ring-zinc-500 outline-none disabled:bg-zinc-100">
-                    <option value="">Seleccione...</option>
-                    @foreach(App\Models\Customer::all() as $c)
-                        <option value="{{ (string)$c->id }}">{{ $c->name }} ({{ $c->CUIT ?: 'S/C' }})</option>
-                    @endforeach
-                </select>
-            </flux:field>
+            <flux:select wire:model.live="customerId" label="Cliente" size="sm" placeholder="Seleccione..." :disabled="$isAssociated">
+                @foreach(App\Models\Customer::all() as $c)
+                    <flux:select.option value="{{ (string)$c->id }}">{{ $c->name }} ({{ $c->CUIT ?: 'S/C' }})</flux:select.option>
+                @endforeach
+            </flux:select>
 
-            <flux:field>
-                <flux:label class="text-xs">Depósito</flux:label>
-                <select wire:model="warehouseId" class="w-full h-9 px-2 py-1 text-sm border border-zinc-200 rounded-md bg-white dark:bg-zinc-800 dark:border-zinc-700 text-zinc-900 dark:text-white focus:ring-2 focus:ring-zinc-500 outline-none">
-                    @foreach(App\Models\Warehouse::all() as $wh)
-                        <option value="{{ $wh->id }}">{{ $wh->name }}</option>
-                    @endforeach
-                </select>
-            </flux:field>
+            <flux:select wire:model="warehouseId" label="Depósito" size="sm">
+                @foreach(App\Models\Warehouse::all() as $wh)
+                    <flux:select.option value="{{ $wh->id }}">{{ $wh->name }}</flux:select.option>
+                @endforeach
+            </flux:select>
 
             <flux:field>
                 <flux:label class="text-xs">Punto Vta</flux:label>
